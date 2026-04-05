@@ -28,8 +28,6 @@ fail() {
   echo "    $2"
 }
 
-# Compare command output against an expected file.
-# Usage: assert_output "label" "expected_file" command args...
 assert_output() {
   local label="$1" expected_file="$EXPECTED_DIR/$2"
   shift 2
@@ -59,9 +57,9 @@ assert_exit_code() {
 
 # --- Seed data ---
 echo "Seeding data..."
-$BIN insert 185.2 $FLAGS --timestamp "2026-04-05T08:00:00" --notes "morning" >/dev/null 2>&1
-$BIN insert 183.8 $FLAGS --timestamp "2026-04-04T07:30:00" --source "gym-check" --notes "after gym" >/dev/null 2>&1
-$BIN insert 184.0 $FLAGS --timestamp "2026-04-06T09:00:00" --notes "before lunch, felt light" >/dev/null 2>&1
+$BIN insert 185.2 $FLAGS --timestamp "2026-04-05T15:00:00Z" --notes "morning" >/dev/null 2>&1
+$BIN insert 183.8 $FLAGS --timestamp "2026-04-04T14:30:00Z" --source "gym-check" --notes "after gym" >/dev/null 2>&1
+$BIN insert 184.0 $FLAGS --timestamp "2026-04-06T16:00:00Z" --notes "before lunch, felt light" >/dev/null 2>&1
 echo ""
 
 # --- JSON output ---
@@ -76,8 +74,8 @@ echo ""
 
 # --- Filters ---
 echo "Filter output:"
-assert_output "filter --since" "filter_since.txt" $BIN list $FLAGS --format json --since "2026-04-05T00:00:00"
-assert_output "filter --until" "filter_until.txt" $BIN list $FLAGS --format json --until "2026-04-05T00:00:00"
+assert_output "filter --since" "filter_since.txt" $BIN list $FLAGS --format json --since "2026-04-05T00:00:00Z"
+assert_output "filter --until" "filter_until.txt" $BIN list $FLAGS --format json --until "2026-04-05T00:00:00Z"
 assert_output "filter --source" "filter_source.txt" $BIN list $FLAGS --format json --source "gym-check"
 
 echo ""
@@ -87,7 +85,21 @@ assert_output "limit 1" "limit_1.txt" $BIN list $FLAGS --format json --limit 1
 
 echo ""
 echo "Timezone conversion:"
-assert_output "UTC to Phoenix" "insert_utc.txt" $BIN insert 186.0 --db "$DB" --log-file "$LOG" --timestamp "2026-04-07T15:00:00Z"
+assert_output "list json with --timezone" "list_tz_phoenix_json.txt" $BIN list $FLAGS --format json --timezone "America/Phoenix"
+assert_output "list csv with --timezone" "list_tz_phoenix_csv.txt" $BIN list $FLAGS --format csv --timezone "America/Phoenix"
+
+echo ""
+echo "Insert CSV output:"
+assert_output "insert csv" "insert_csv.txt" $BIN insert 187.0 $FLAGS --timestamp "2026-04-08T10:00:00Z" --format csv
+
+echo ""
+echo "UTC storage:"
+assert_output "offset converted to UTC" "insert_offset.txt" $BIN insert 186.0 --db "$DB" --log-file "$LOG" --timestamp "2026-04-07T08:00:00-07:00"
+
+echo ""
+echo "Version command:"
+assert_output "version json" "version_json.txt" $BIN version --log-file "$LOG" --format json
+assert_output "version csv" "version_csv.txt" $BIN version --log-file "$LOG" --format csv
 
 echo ""
 echo "Empty db:"
@@ -104,12 +116,24 @@ $BIN insert not-a-number $FLAGS >/dev/null 2>&1 || rc=$?
 assert_exit_code "$rc" "1" "invalid weight returns exit code 1"
 
 rc=0
-$BIN insert 180.0 $FLAGS --timestamp "2026-04-05T08:00:00" >/dev/null 2>&1 || rc=$?
+$BIN insert 180.0 $FLAGS --timestamp "2026-04-05T15:00:00Z" >/dev/null 2>&1 || rc=$?
 assert_exit_code "$rc" "1" "duplicate timestamp returns exit code 1"
 
 rc=0
 $BIN insert $FLAGS >/dev/null 2>&1 || rc=$?
 assert_exit_code "$rc" "1" "missing weight arg returns exit code 1"
+
+rc=0
+$BIN insert 180.0 $FLAGS --timestamp "2026-04-05 08:00" >/dev/null 2>&1 || rc=$?
+assert_exit_code "$rc" "1" "non-RFC3339 insert timestamp returns exit code 1"
+
+rc=0
+$BIN list $FLAGS --since "2026-04-05 08:00" >/dev/null 2>&1 || rc=$?
+assert_exit_code "$rc" "1" "non-RFC3339 --since returns exit code 1"
+
+rc=0
+$BIN list $FLAGS --timezone "Invalid/Zone" >/dev/null 2>&1 || rc=$?
+assert_exit_code "$rc" "1" "invalid timezone returns exit code 1"
 
 echo ""
 echo "================================"

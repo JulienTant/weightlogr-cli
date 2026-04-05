@@ -5,10 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/julientant/weightlogr-cli/internal/store"
 	"github.com/julientant/weightlogr-cli/internal/version"
 )
+
+func convertTimestamp(rfc3339 string, loc *time.Location) (string, error) {
+	t, err := time.Parse(time.RFC3339, rfc3339)
+	if err != nil {
+		return rfc3339, fmt.Errorf("parse timestamp %q: %w", rfc3339, err)
+	}
+	return t.In(loc).Format(time.RFC3339), nil
+}
 
 const (
 	FormatJSON = "json"
@@ -48,10 +57,26 @@ func FormatInsert(w io.Writer, format string, r store.WeighIn) error {
 }
 
 // FormatList writes a list of weigh-ins in the given format.
-func FormatList(w io.Writer, format string, results []store.WeighIn) error {
+// Timestamps are converted to loc before formatting.
+func FormatList(w io.Writer, format string, loc *time.Location, results []store.WeighIn) error {
 	switch format {
 	case FormatJSON:
-		if err := json.NewEncoder(w).Encode(results); err != nil {
+		if results == nil {
+			if err := json.NewEncoder(w).Encode(results); err != nil {
+				return fmt.Errorf("json encode: %w", err)
+			}
+			return nil
+		}
+		converted := make([]store.WeighIn, len(results))
+		for i, r := range results {
+			ts, err := convertTimestamp(r.CreatedAt, loc)
+			if err != nil {
+				return fmt.Errorf("convert timestamp: %w", err)
+			}
+			r.CreatedAt = ts
+			converted[i] = r
+		}
+		if err := json.NewEncoder(w).Encode(converted); err != nil {
 			return fmt.Errorf("json encode: %w", err)
 		}
 		return nil
@@ -61,10 +86,14 @@ func FormatList(w io.Writer, format string, results []store.WeighIn) error {
 			return fmt.Errorf("csv header: %w", err)
 		}
 		for _, r := range results {
+			ts, err := convertTimestamp(r.CreatedAt, loc)
+			if err != nil {
+				return fmt.Errorf("convert timestamp: %w", err)
+			}
 			if err := cw.Write([]string{
 				fmt.Sprintf("%d", r.ID),
 				fmt.Sprintf("%.1f", r.Weight),
-				r.CreatedAt,
+				ts,
 				r.Source,
 				r.Notes,
 			}); err != nil {

@@ -23,7 +23,7 @@ var insertCmd = &cobra.Command{
 }
 
 func init() {
-	insertCmd.Flags().String("timestamp", "", "ISO 8601 timestamp (defaults to now)")
+	insertCmd.Flags().String("timestamp", "", "RFC3339 timestamp (defaults to now in UTC)")
 	insertCmd.Flags().String("source", DefaultSource, "Source label")
 	insertCmd.Flags().String("notes", "", "Optional notes")
 
@@ -36,11 +36,6 @@ func runInsert(cmd *cobra.Command, args []string) error {
 
 	log.Debug("parsing insert arguments", "raw_weight", args[0])
 
-	tz, err := loadTimezone(ctx)
-	if err != nil {
-		return fmt.Errorf("load timezone: %w", err)
-	}
-
 	var weight float64
 	if _, err := fmt.Sscanf(args[0], "%f", &weight); err != nil {
 		return fmt.Errorf("invalid weight: %w", err)
@@ -50,7 +45,7 @@ func runInsert(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		log.Warn("failed to read timestamp flag", "error", err)
 	}
-	createdAt, err := normalizeTimestamp(ctx, ts, tz)
+	createdAt, err := normalizeTimestamp(ts)
 	if err != nil {
 		return fmt.Errorf("normalize timestamp: %w", err)
 	}

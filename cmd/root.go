@@ -15,11 +15,12 @@ import (
 
 const (
 	DefaultDB       = "/opt/data/weights.db"
-	DefaultTZ       = "America/Phoenix"
 	DefaultLogFile  = "/opt/data/weightlogr.log"
 	DefaultLogLevel = "info"
 
 	LogFileStderr = "stderr"
+
+	LogFilePermissions = 0o644
 
 	LogLevelDebug = "debug"
 	LogLevelWarn  = "warn"
@@ -67,7 +68,6 @@ var rootCmd = &cobra.Command{
 		l.Info("weightlogr starting", "command", cmd.Name())
 		l.Debug("resolved configuration",
 			"db", viper.GetString("db"),
-			"timezone", viper.GetString("timezone"),
 			"format", viper.GetString("format"),
 			"log_file", viper.GetString("log_file"),
 			"log_level", viper.GetString("log_level"),
@@ -88,7 +88,6 @@ func init() {
 	f := rootCmd.PersistentFlags()
 
 	f.String("db", DefaultDB, "Path to SQLite database")
-	f.String("timezone", DefaultTZ, "Timezone for timestamps")
 	f.String("format", presentation.FormatJSON, "Output format: json, csv")
 	f.String("log-file", DefaultLogFile, "Path to log file (use 'stderr' for stderr)")
 	f.String("log-level", DefaultLogLevel, "Log level: debug, info, warn, error")
@@ -98,7 +97,6 @@ func init() {
 		flag string
 	}{
 		{"db", "db"},
-		{"timezone", "timezone"},
 		{"format", "format"},
 		{"log_file", "log-file"},
 		{"log_level", "log-level"},

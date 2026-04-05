@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,7 @@ func sampleWeighIn() store.WeighIn {
 	return store.WeighIn{
 		ID:        1,
 		Weight:    185.5,
-		CreatedAt: "2026-04-05 08:30:00",
+		CreatedAt: "2026-04-05T08:30:00Z",
 		Source:    "manual",
 		Notes:     "morning",
 	}
@@ -51,7 +52,7 @@ func TestFormatInsert(t *testing.T) {
 		assert.Equal(t, []string{"id", "weight", "created_at", "source", "notes"}, records[0])
 		assert.Equal(t, "1", records[1][0])
 		assert.Equal(t, "185.5", records[1][1])
-		assert.Equal(t, "2026-04-05 08:30:00", records[1][2])
+		assert.Equal(t, "2026-04-05T08:30:00Z", records[1][2])
 		assert.Equal(t, "manual", records[1][3])
 		assert.Equal(t, "morning", records[1][4])
 	})
@@ -80,24 +81,24 @@ func TestFormatInsert(t *testing.T) {
 
 func TestFormatList(t *testing.T) {
 	twoEntries := []store.WeighIn{
-		{ID: 1, Weight: 185.0, CreatedAt: "2026-04-01 08:00:00", Source: "manual", Notes: "good day"},
-		{ID: 2, Weight: 184.5, CreatedAt: "2026-04-02 08:00:00", Source: "scale", Notes: ""},
+		{ID: 1, Weight: 185.0, CreatedAt: "2026-04-01T08:00:00Z", Source: "manual", Notes: "good day"},
+		{ID: 2, Weight: 184.5, CreatedAt: "2026-04-02T08:00:00Z", Source: "scale", Notes: ""},
 	}
 
 	t.Run("json empty", func(t *testing.T) {
 		var buf bytes.Buffer
-		require.NoError(t, FormatList(&buf, FormatJSON, nil))
+		require.NoError(t, FormatList(&buf, FormatJSON, time.UTC, nil))
 		assert.Equal(t, "null\n", buf.String())
 	})
 
 	t.Run("json with entries", func(t *testing.T) {
 		entries := []store.WeighIn{
-			{ID: 1, Weight: 185.0, CreatedAt: "2026-04-01 08:00:00", Source: "manual", Notes: "a"},
-			{ID: 2, Weight: 184.5, CreatedAt: "2026-04-02 08:00:00", Source: "scale", Notes: "b"},
+			{ID: 1, Weight: 185.0, CreatedAt: "2026-04-01T08:00:00Z", Source: "manual", Notes: "a"},
+			{ID: 2, Weight: 184.5, CreatedAt: "2026-04-02T08:00:00Z", Source: "scale", Notes: "b"},
 		}
 
 		var buf bytes.Buffer
-		require.NoError(t, FormatList(&buf, FormatJSON, entries))
+		require.NoError(t, FormatList(&buf, FormatJSON, time.UTC, entries))
 
 		var decoded []store.WeighIn
 		require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
@@ -108,9 +109,27 @@ func TestFormatList(t *testing.T) {
 		assert.Equal(t, "a", decoded[0].Notes)
 	})
 
+	t.Run("json with timezone conversion", func(t *testing.T) {
+		entries := []store.WeighIn{
+			{ID: 1, Weight: 185.0, CreatedAt: "2026-04-01T15:00:00Z", Source: "manual", Notes: "a"},
+		}
+
+		phoenix, err := time.LoadLocation("America/Phoenix")
+		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		require.NoError(t, FormatList(&buf, FormatJSON, phoenix, entries))
+
+		var decoded []store.WeighIn
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
+
+		require.Len(t, decoded, 1)
+		assert.Equal(t, "2026-04-01T08:00:00-07:00", decoded[0].CreatedAt)
+	})
+
 	t.Run("csv", func(t *testing.T) {
 		var buf bytes.Buffer
-		require.NoError(t, FormatList(&buf, FormatCSV, twoEntries))
+		require.NoError(t, FormatList(&buf, FormatCSV, time.UTC, twoEntries))
 
 		records, err := csv.NewReader(strings.NewReader(buf.String())).ReadAll()
 		require.NoError(t, err)
@@ -121,14 +140,32 @@ func TestFormatList(t *testing.T) {
 		assert.Equal(t, "184.5", records[2][1])
 	})
 
+	t.Run("csv with timezone conversion", func(t *testing.T) {
+		entries := []store.WeighIn{
+			{ID: 1, Weight: 185.0, CreatedAt: "2026-04-01T15:00:00Z", Source: "manual", Notes: "afternoon"},
+		}
+
+		phoenix, err := time.LoadLocation("America/Phoenix")
+		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		require.NoError(t, FormatList(&buf, FormatCSV, phoenix, entries))
+
+		records, err := csv.NewReader(strings.NewReader(buf.String())).ReadAll()
+		require.NoError(t, err)
+
+		require.Len(t, records, 2)
+		assert.Equal(t, "2026-04-01T08:00:00-07:00", records[1][2])
+	})
+
 	t.Run("csv special characters in notes", func(t *testing.T) {
 		entries := []store.WeighIn{
-			{ID: 1, Weight: 185.0, CreatedAt: "2026-04-01 08:00:00", Source: "manual", Notes: "tired, sore"},
-			{ID: 2, Weight: 184.5, CreatedAt: "2026-04-02 08:00:00", Source: "scale", Notes: `she said "wow"`},
+			{ID: 1, Weight: 185.0, CreatedAt: "2026-04-01T08:00:00Z", Source: "manual", Notes: "tired, sore"},
+			{ID: 2, Weight: 184.5, CreatedAt: "2026-04-02T08:00:00Z", Source: "scale", Notes: `she said "wow"`},
 		}
 
 		var buf bytes.Buffer
-		require.NoError(t, FormatList(&buf, FormatCSV, entries))
+		require.NoError(t, FormatList(&buf, FormatCSV, time.UTC, entries))
 
 		records, err := csv.NewReader(strings.NewReader(buf.String())).ReadAll()
 		require.NoError(t, err)
@@ -140,7 +177,7 @@ func TestFormatList(t *testing.T) {
 
 	t.Run("unsupported format returns error", func(t *testing.T) {
 		var buf bytes.Buffer
-		err := FormatList(&buf, "yaml", []store.WeighIn{sampleWeighIn()})
+		err := FormatList(&buf, "yaml", time.UTC, []store.WeighIn{sampleWeighIn()})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported format")
 	})

@@ -20,11 +20,12 @@ var listCmd = &cobra.Command{
 }
 
 func init() {
-	listCmd.Flags().String("since", "", "Start date/time inclusive (ISO 8601)")
-	listCmd.Flags().String("until", "", "End date/time exclusive (ISO 8601)")
+	listCmd.Flags().String("since", "", "Start date/time inclusive (RFC3339)")
+	listCmd.Flags().String("until", "", "End date/time exclusive (RFC3339)")
 	listCmd.Flags().String("source", "", "Filter by source")
 	listCmd.Flags().String("order", store.OrderDesc, "Sort order: asc or desc")
 	listCmd.Flags().Int("limit", 0, "Max rows to return (0 = unlimited)")
+	listCmd.Flags().String("timezone", "", "Convert output timestamps to this timezone (e.g. America/Phoenix)")
 
 	rootCmd.AddCommand(listCmd)
 }
@@ -34,11 +35,6 @@ func runList(cmd *cobra.Command, _ []string) error {
 	log := logger.FromContext(ctx)
 
 	log.Debug("parsing list flags")
-
-	tz, err := loadTimezone(ctx)
-	if err != nil {
-		return fmt.Errorf("load timezone: %w", err)
-	}
 
 	conn, err := db.Open(ctx, viper.GetString("db"))
 	if err != nil {
@@ -55,13 +51,13 @@ func runList(cmd *cobra.Command, _ []string) error {
 		log.Warn("failed to read until flag", "error", err)
 	}
 	if since != "" {
-		since, err = normalizeTimestamp(ctx, since, tz)
+		since, err = normalizeTimestamp(since)
 		if err != nil {
 			return fmt.Errorf("normalize since timestamp: %w", err)
 		}
 	}
 	if until != "" {
-		until, err = normalizeTimestamp(ctx, until, tz)
+		until, err = normalizeTimestamp(until)
 		if err != nil {
 			return fmt.Errorf("normalize until timestamp: %w", err)
 		}
@@ -80,6 +76,15 @@ func runList(cmd *cobra.Command, _ []string) error {
 		log.Warn("failed to read limit flag", "error", err)
 	}
 
+	tz, err := cmd.Flags().GetString("timezone")
+	if err != nil {
+		log.Warn("failed to read timezone flag", "error", err)
+	}
+	loc, err := loadTimezone(tz)
+	if err != nil {
+		return fmt.Errorf("load timezone: %w", err)
+	}
+
 	s := store.New(conn)
 	results, err := s.List(ctx, store.ListOpts{
 		Since:  since,
@@ -92,5 +97,5 @@ func runList(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("list weigh-ins: %w", err)
 	}
 
-	return presentation.FormatList(os.Stdout, viper.GetString("format"), results)
+	return presentation.FormatList(os.Stdout, viper.GetString("format"), loc, results)
 }

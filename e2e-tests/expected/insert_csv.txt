@@ -1,0 +1,2 @@
+id,weight,created_at,source,notes
+4,187.0,2026-04-08T10:00:00Z,daily-check,
