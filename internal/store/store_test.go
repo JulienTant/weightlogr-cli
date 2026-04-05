@@ -47,6 +47,7 @@ func TestInsert(t *testing.T) {
 		assert.Equal(t, "2025-01-15T08:00:00Z", w.CreatedAt)
 		assert.Equal(t, "scale", w.Source)
 		assert.Equal(t, "morning weigh-in", w.Notes)
+		assert.Equal(t, "2025-01-15T08:00:00Z", w.UpdatedAt)
 	})
 
 	t.Run("auto-incrementing IDs", func(t *testing.T) {
@@ -254,5 +255,120 @@ func TestList(t *testing.T) {
 		require.Len(t, results, 2)
 		assert.Equal(t, "2025-01-03T08:00:00Z", results[0].CreatedAt)
 		assert.Equal(t, "2025-01-04T08:00:00Z", results[1].CreatedAt)
+	})
+
+	t.Run("excludes soft-deleted rows", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+		seedThree(t, s, ctx)
+
+		err := s.Delete(ctx, 2)
+		require.NoError(t, err)
+
+		results, err := s.List(ctx, ListOpts{})
+		require.NoError(t, err)
+		assert.Len(t, results, 2)
+		for _, r := range results {
+			assert.NotEqual(t, int64(2), r.ID)
+		}
+	})
+}
+
+func TestUpdate(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+
+		inserted, err := s.Insert(ctx, 80.0, "2025-01-01T08:00:00Z", "scale", "original")
+		require.NoError(t, err)
+
+		updated, err := s.Update(ctx, inserted.ID, 81.5, "manual", "corrected")
+		require.NoError(t, err)
+
+		assert.Equal(t, inserted.ID, updated.ID)
+		assert.Equal(t, 81.5, updated.Weight)
+		assert.Equal(t, "manual", updated.Source)
+		assert.Equal(t, "corrected", updated.Notes)
+		assert.Equal(t, inserted.CreatedAt, updated.CreatedAt)
+		assert.NotEqual(t, inserted.UpdatedAt, updated.UpdatedAt)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+
+		_, err := s.Update(ctx, 999, 80.0, "scale", "")
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("already deleted", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+
+		inserted, err := s.Insert(ctx, 80.0, "2025-01-01T08:00:00Z", "scale", "")
+		require.NoError(t, err)
+
+		err = s.Delete(ctx, inserted.ID)
+		require.NoError(t, err)
+
+		_, err = s.Update(ctx, inserted.ID, 81.0, "scale", "")
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("persists via list", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+
+		inserted, err := s.Insert(ctx, 80.0, "2025-01-01T08:00:00Z", "scale", "original")
+		require.NoError(t, err)
+
+		_, err = s.Update(ctx, inserted.ID, 81.5, "manual", "updated")
+		require.NoError(t, err)
+
+		results, err := s.List(ctx, ListOpts{})
+		require.NoError(t, err)
+
+		require.Len(t, results, 1)
+		assert.Equal(t, 81.5, results[0].Weight)
+		assert.Equal(t, "updated", results[0].Notes)
+	})
+}
+
+func TestDelete(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+
+		inserted, err := s.Insert(ctx, 80.0, "2025-01-01T08:00:00Z", "scale", "")
+		require.NoError(t, err)
+
+		err = s.Delete(ctx, inserted.ID)
+		require.NoError(t, err)
+
+		results, err := s.List(ctx, ListOpts{})
+		require.NoError(t, err)
+		assert.Empty(t, results)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+
+		err := s.Delete(ctx, 999)
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("already deleted", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+
+		inserted, err := s.Insert(ctx, 80.0, "2025-01-01T08:00:00Z", "scale", "")
+		require.NoError(t, err)
+
+		err = s.Delete(ctx, inserted.ID)
+		require.NoError(t, err)
+
+		err = s.Delete(ctx, inserted.ID)
+		require.ErrorIs(t, err, ErrNotFound)
 	})
 }

@@ -30,7 +30,7 @@ tasks:
   fmt:
     desc: Format code with gofumpt
     cmds:
-      - "{{.MISE}} gofumpt -w cmd/ internal/ main.go"
+      - "{{.MISE}} gofumpt -w cmd/ internal/ e2e-tests/ main.go"
 
   test:
     desc: Run tests
@@ -40,7 +40,7 @@ tasks:
   e2e:
     desc: Run e2e smoke tests
     cmds:
-      - ./e2e-tests/smoke_test.sh
+      - "{{.MISE}} gotestsum --format testdox ./e2e-tests/... -- -count=1"
 
   check:
     desc: Run fmt, lint, test, and e2e
