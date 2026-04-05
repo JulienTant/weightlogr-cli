@@ -320,8 +320,9 @@ func TestUpdate(t *testing.T) {
 	})
 
 	t.Run("non-existent id fails", func(t *testing.T) {
-		_, err := env.run("update", "999", "80.0")
+		out, err := env.run("update", "999", "80.0")
 		require.Error(t, err)
+		assert.Contains(t, out, "weigh-in 999 not found")
 	})
 
 	t.Run("invalid id fails", func(t *testing.T) {
@@ -351,8 +352,9 @@ func TestDelete(t *testing.T) {
 	})
 
 	t.Run("non-existent id fails", func(t *testing.T) {
-		_, err := env.run("delete", "999")
+		out, err := env.run("delete", "999")
 		require.Error(t, err)
+		assert.Contains(t, out, "weigh-in 999 not found")
 	})
 
 	t.Run("invalid id fails", func(t *testing.T) {

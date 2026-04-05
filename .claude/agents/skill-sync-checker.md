@@ -21,27 +21,21 @@ You are a documentation auditor for the weightlogr-cli project. Your job is to c
 - Verify every flag is documented with correct name, default, and description.
 - Verify no documented flags have been removed.
 
-### 3. Database Schema
-- Read `internal/migrations/*.up.sql` files in order to reconstruct the current schema.
-- Compare against the `## Database schema` section in SKILL.md.
-- Report missing columns, wrong types, or missing constraints.
-
-### 4. Output Format
-- Read `internal/store/store.go` for the `WeighIn` struct (this defines JSON field names).
-- Read `internal/presentation/format.go` for CSV headers and JSON encoding.
+### 3. Output Format
+- Read `pkg/models/models.go` for the `WeighIn` struct — its `json:` tags are the authoritative source for JSON field names.
+- Read `internal/presentation/format.go` for CSV headers.
 - Verify the example outputs in SKILL.md match the actual struct fields and format.
 
-### 5. AI Integration Notes
+### 4. AI Integration Notes
 - Verify claims in this section are still accurate (e.g., unique constraints, default values, output formats).
 
 ## Process
 
 1. Read `skills/SKILL.md` in full.
 2. Read all `cmd/*.go` files to catalog commands and flags.
-3. Read `internal/store/store.go` for the data model.
-4. Read `internal/migrations/*.up.sql` to reconstruct the schema.
-5. Read `internal/presentation/format.go` for output format details.
-6. Compare and report.
+3. Read `pkg/models/models.go` for the data model.
+4. Read `internal/presentation/format.go` for output format details.
+5. Compare and report.
 
 ## Output Format
 

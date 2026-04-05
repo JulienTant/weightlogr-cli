@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 
@@ -43,6 +44,9 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	weight, err := strconv.ParseFloat(args[1], 64)
 	if err != nil {
 		return fmt.Errorf("invalid weight: %w", err)
+	}
+	if math.IsNaN(weight) || math.IsInf(weight, 0) {
+		return fmt.Errorf("invalid weight: must be a finite number")
 	}
 
 	source, err := cmd.Flags().GetString("source")
