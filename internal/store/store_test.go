@@ -12,6 +12,7 @@ import (
 
 	"github.com/julientant/weightlogr-cli/internal/db"
 	applog "github.com/julientant/weightlogr-cli/internal/logger"
+	"github.com/julientant/weightlogr-cli/pkg/models"
 )
 
 func openTestDB(t *testing.T) (*sql.DB, context.Context) {
@@ -47,6 +48,7 @@ func TestInsert(t *testing.T) {
 		assert.Equal(t, "2025-01-15T08:00:00Z", w.CreatedAt)
 		assert.Equal(t, "scale", w.Source)
 		assert.Equal(t, "morning weigh-in", w.Notes)
+		assert.Equal(t, "2025-01-15T08:00:00Z", w.UpdatedAt)
 	})
 
 	t.Run("auto-incrementing IDs", func(t *testing.T) {
@@ -95,7 +97,7 @@ func TestInsert(t *testing.T) {
 		_, err := s.Insert(ctx, 85.0, "2025-04-01T08:00:00Z", "app", "persisted")
 		require.NoError(t, err)
 
-		results, err := s.List(ctx, ListOpts{})
+		results, err := s.List(ctx, models.ListOpts{})
 		require.NoError(t, err)
 
 		require.Len(t, results, 1)
@@ -109,7 +111,7 @@ func TestList(t *testing.T) {
 		conn, ctx := openTestDB(t)
 		s := New(conn)
 
-		results, err := s.List(ctx, ListOpts{})
+		results, err := s.List(ctx, models.ListOpts{})
 		require.NoError(t, err)
 		assert.Empty(t, results)
 	})
@@ -119,7 +121,7 @@ func TestList(t *testing.T) {
 		s := New(conn)
 		seedThree(t, s, ctx)
 
-		results, err := s.List(ctx, ListOpts{})
+		results, err := s.List(ctx, models.ListOpts{})
 		require.NoError(t, err)
 		assert.Len(t, results, 3)
 	})
@@ -129,7 +131,7 @@ func TestList(t *testing.T) {
 		s := New(conn)
 		seedThree(t, s, ctx)
 
-		results, err := s.List(ctx, ListOpts{Since: "2025-01-02T08:00:00Z", Order: "asc"})
+		results, err := s.List(ctx, models.ListOpts{Since: "2025-01-02T08:00:00Z", Order: "asc"})
 		require.NoError(t, err)
 
 		require.Len(t, results, 2)
@@ -142,7 +144,7 @@ func TestList(t *testing.T) {
 		s := New(conn)
 		seedThree(t, s, ctx)
 
-		results, err := s.List(ctx, ListOpts{Until: "2025-01-03T08:00:00Z", Order: "asc"})
+		results, err := s.List(ctx, models.ListOpts{Until: "2025-01-03T08:00:00Z", Order: "asc"})
 		require.NoError(t, err)
 
 		require.Len(t, results, 2)
@@ -163,7 +165,7 @@ func TestList(t *testing.T) {
 		_, err = s.Insert(ctx, 83.0, "2025-01-04T08:00:00Z", "scale", "")
 		require.NoError(t, err)
 
-		results, err := s.List(ctx, ListOpts{Since: "2025-01-02T08:00:00Z", Until: "2025-01-04T08:00:00Z", Order: "asc"})
+		results, err := s.List(ctx, models.ListOpts{Since: "2025-01-02T08:00:00Z", Until: "2025-01-04T08:00:00Z", Order: "asc"})
 		require.NoError(t, err)
 
 		require.Len(t, results, 2)
@@ -176,7 +178,7 @@ func TestList(t *testing.T) {
 		s := New(conn)
 		seedThree(t, s, ctx)
 
-		results, err := s.List(ctx, ListOpts{Source: "scale"})
+		results, err := s.List(ctx, models.ListOpts{Source: "scale"})
 		require.NoError(t, err)
 
 		require.Len(t, results, 2)
@@ -190,19 +192,19 @@ func TestList(t *testing.T) {
 		s := New(conn)
 		seedThree(t, s, ctx)
 
-		asc, err := s.List(ctx, ListOpts{Order: "asc"})
+		asc, err := s.List(ctx, models.ListOpts{Order: "asc"})
 		require.NoError(t, err)
 		require.Len(t, asc, 3)
 		assert.Equal(t, "2025-01-01T08:00:00Z", asc[0].CreatedAt)
 		assert.Equal(t, "2025-01-03T08:00:00Z", asc[2].CreatedAt)
 
-		desc, err := s.List(ctx, ListOpts{Order: "desc"})
+		desc, err := s.List(ctx, models.ListOpts{Order: "desc"})
 		require.NoError(t, err)
 		require.Len(t, desc, 3)
 		assert.Equal(t, "2025-01-03T08:00:00Z", desc[0].CreatedAt)
 		assert.Equal(t, "2025-01-01T08:00:00Z", desc[2].CreatedAt)
 
-		defaultOrder, err := s.List(ctx, ListOpts{})
+		defaultOrder, err := s.List(ctx, models.ListOpts{})
 		require.NoError(t, err)
 		assert.Equal(t, "2025-01-03T08:00:00Z", defaultOrder[0].CreatedAt)
 	})
@@ -212,7 +214,7 @@ func TestList(t *testing.T) {
 		s := New(conn)
 		seedThree(t, s, ctx)
 
-		results, err := s.List(ctx, ListOpts{Limit: 2})
+		results, err := s.List(ctx, models.ListOpts{Limit: 2})
 		require.NoError(t, err)
 		assert.Len(t, results, 2)
 	})
@@ -222,7 +224,7 @@ func TestList(t *testing.T) {
 		s := New(conn)
 		seedThree(t, s, ctx)
 
-		results, err := s.List(ctx, ListOpts{Limit: 0})
+		results, err := s.List(ctx, models.ListOpts{Limit: 0})
 		require.NoError(t, err)
 		assert.Len(t, results, 3)
 	})
@@ -242,7 +244,7 @@ func TestList(t *testing.T) {
 		_, err = s.Insert(ctx, 84.0, "2025-01-05T08:00:00Z", "scale", "")
 		require.NoError(t, err)
 
-		results, err := s.List(ctx, ListOpts{
+		results, err := s.List(ctx, models.ListOpts{
 			Since:  "2025-01-02T08:00:00Z",
 			Until:  "2025-01-05T08:00:00Z",
 			Source: "scale",
@@ -254,5 +256,120 @@ func TestList(t *testing.T) {
 		require.Len(t, results, 2)
 		assert.Equal(t, "2025-01-03T08:00:00Z", results[0].CreatedAt)
 		assert.Equal(t, "2025-01-04T08:00:00Z", results[1].CreatedAt)
+	})
+
+	t.Run("excludes soft-deleted rows", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+		seedThree(t, s, ctx)
+
+		err := s.Delete(ctx, 2)
+		require.NoError(t, err)
+
+		results, err := s.List(ctx, models.ListOpts{})
+		require.NoError(t, err)
+		assert.Len(t, results, 2)
+		for _, r := range results {
+			assert.NotEqual(t, int64(2), r.ID)
+		}
+	})
+}
+
+func TestUpdate(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+
+		inserted, err := s.Insert(ctx, 80.0, "2025-01-01T08:00:00Z", "scale", "original")
+		require.NoError(t, err)
+
+		updated, err := s.Update(ctx, inserted.ID, 81.5, "manual", "corrected")
+		require.NoError(t, err)
+
+		assert.Equal(t, inserted.ID, updated.ID)
+		assert.Equal(t, 81.5, updated.Weight)
+		assert.Equal(t, "manual", updated.Source)
+		assert.Equal(t, "corrected", updated.Notes)
+		assert.Equal(t, inserted.CreatedAt, updated.CreatedAt)
+		assert.NotEqual(t, inserted.UpdatedAt, updated.UpdatedAt)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+
+		_, err := s.Update(ctx, 999, 80.0, "scale", "")
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("already deleted", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+
+		inserted, err := s.Insert(ctx, 80.0, "2025-01-01T08:00:00Z", "scale", "")
+		require.NoError(t, err)
+
+		err = s.Delete(ctx, inserted.ID)
+		require.NoError(t, err)
+
+		_, err = s.Update(ctx, inserted.ID, 81.0, "scale", "")
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("persists via list", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+
+		inserted, err := s.Insert(ctx, 80.0, "2025-01-01T08:00:00Z", "scale", "original")
+		require.NoError(t, err)
+
+		_, err = s.Update(ctx, inserted.ID, 81.5, "manual", "updated")
+		require.NoError(t, err)
+
+		results, err := s.List(ctx, models.ListOpts{})
+		require.NoError(t, err)
+
+		require.Len(t, results, 1)
+		assert.Equal(t, 81.5, results[0].Weight)
+		assert.Equal(t, "updated", results[0].Notes)
+	})
+}
+
+func TestDelete(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+
+		inserted, err := s.Insert(ctx, 80.0, "2025-01-01T08:00:00Z", "scale", "")
+		require.NoError(t, err)
+
+		err = s.Delete(ctx, inserted.ID)
+		require.NoError(t, err)
+
+		results, err := s.List(ctx, models.ListOpts{})
+		require.NoError(t, err)
+		assert.Empty(t, results)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+
+		err := s.Delete(ctx, 999)
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("already deleted", func(t *testing.T) {
+		conn, ctx := openTestDB(t)
+		s := New(conn)
+
+		inserted, err := s.Insert(ctx, 80.0, "2025-01-01T08:00:00Z", "scale", "")
+		require.NoError(t, err)
+
+		err = s.Delete(ctx, inserted.ID)
+		require.NoError(t, err)
+
+		err = s.Delete(ctx, inserted.ID)
+		require.ErrorIs(t, err, ErrNotFound)
 	})
 }

@@ -1,2 +1,0 @@
-version,commit,date
-dev,none,unknown

@@ -60,7 +60,7 @@ weightlogr-cli insert 185.2 --format json
 weightlogr-cli insert 184.0 --timestamp 2026-04-03T08:00:00-07:00 --notes "after gym" --source gym-check --format json
 
 # Output (json):
-# {"created_at":"2026-04-05T15:06:55Z","id":1,"notes":"","source":"daily-check","weight":185.2}
+# {"id":1,"weight":185.2,"created_at":"2026-04-05T15:06:55Z","source":"daily-check","notes":"","updated_at":"2026-04-05T15:06:55Z"}
 ```
 
 ### list — Query weigh-ins
@@ -91,19 +91,45 @@ weightlogr-cli list --since 2026-03-31 --until 2026-04-07 --format json
 weightlogr-cli list --source gym-check --order asc --format json
 
 # Output (json):
-# [{"id":1,"weight":185.2,"created_at":"2026-04-05T15:06:55Z","source":"daily-check","notes":"test"}]
+# [{"id":1,"weight":185.2,"created_at":"2026-04-05T15:06:55Z","source":"daily-check","notes":"test","updated_at":"2026-04-05T15:06:55Z"}]
 ```
 
-## Database schema
+### update — Update a weigh-in
 
-```sql
-CREATE TABLE weigh_ins (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    weight     REAL    NOT NULL,            -- pounds
-    created_at TEXT    NOT NULL UNIQUE,      -- RFC3339 UTC (e.g. "2026-04-05T15:00:00Z")
-    source     TEXT,                         -- e.g. "daily-check", "gym-check"
-    notes      TEXT
-);
+```bash
+weightlogr-cli update <id> <weight> [flags]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--source` | `daily-check` | Source label |
+| `--notes` | | Optional notes |
+
+**Examples:**
+
+```bash
+# Update weight and notes
+weightlogr-cli update 1 190.0 --source corrected --notes "re-weighed" --format json
+
+# Output (json):
+# {"id":1,"weight":190,"created_at":"2026-04-05T15:00:00Z","source":"corrected","notes":"re-weighed","updated_at":"2026-04-05T16:30:00Z"}
+```
+
+### delete — Soft-delete a weigh-in
+
+```bash
+weightlogr-cli delete <id>
+```
+
+Soft-deletes the entry. It will no longer appear in `list` results.
+
+**Examples:**
+
+```bash
+weightlogr-cli delete 2 --format json
+
+# Output (json):
+# {"id":2,"deleted":true}
 ```
 
 ### version — Print build info
@@ -119,6 +145,8 @@ weightlogr-cli version
 - Default output format is `json` — all commands produce structured output by default
 - `created_at` is UNIQUE — two entries at the same second will conflict
 - The `--source` flag is useful for distinguishing manual vs automated entries
+- `updated_at` is always present — set to `created_at` on insert, updated to current time on update
+- `delete` is a soft-delete — entries are hidden from `list` but not removed from the database
 - Empty `notes` returns `""` in JSON (not null)
 - The database auto-migrates on first use — no setup needed
 - Logs go to file by default, keeping stdout clean for output parsing
