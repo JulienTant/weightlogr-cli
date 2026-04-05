@@ -19,8 +19,6 @@ const (
 	DefaultLogFile  = "/opt/data/weightlogr.log"
 	DefaultLogLevel = "info"
 
-	UnitKg = "kg"
-
 	LogFileStderr = "stderr"
 
 	LogLevelDebug = "debug"
@@ -60,10 +58,11 @@ var rootCmd = &cobra.Command{
 			l.Debug("config file loaded", "path", f)
 		}
 
+		buildInfo := version.Info()
 		l.Debug("build info",
-			"version", version.Version,
-			"commit", version.Commit,
-			"date", version.Date,
+			"version", buildInfo.Version,
+			"commit", buildInfo.Commit,
+			"date", buildInfo.Date,
 		)
 		l.Info("weightlogr starting", "command", cmd.Name())
 		l.Debug("resolved configuration",
@@ -90,8 +89,7 @@ func init() {
 
 	f.String("db", DefaultDB, "Path to SQLite database")
 	f.String("timezone", DefaultTZ, "Timezone for timestamps")
-	f.String("format", presentation.FormatTable, "Output format: table, json, csv")
-	f.String("unit", UnitKg, "Weight unit: kg or lb")
+	f.String("format", presentation.FormatJSON, "Output format: json, csv")
 	f.String("log-file", DefaultLogFile, "Path to log file (use 'stderr' for stderr)")
 	f.String("log-level", DefaultLogLevel, "Log level: debug, info, warn, error")
 
@@ -102,7 +100,6 @@ func init() {
 		{"db", "db"},
 		{"timezone", "timezone"},
 		{"format", "format"},
-		{"unit", "unit"},
 		{"log_file", "log-file"},
 		{"log_level", "log-level"},
 	} {

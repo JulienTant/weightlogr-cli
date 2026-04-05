@@ -7,21 +7,16 @@ import (
 	"io"
 
 	"github.com/julientant/weightlogr-cli/internal/store"
+	"github.com/julientant/weightlogr-cli/internal/version"
 )
 
 const (
-	FormatJSON  = "json"
-	FormatCSV   = "csv"
-	FormatTable = "table"
-
-	tableHeader    = "%-20s | %6s | %-11s | %s\n"
-	tableSeparator = "---------------------+--------+-------------+--------------------"
-	tableRow       = "%-20s | %6.1f | %-11s | %s\n"
-	emptyNotes     = "-"
+	FormatJSON = "json"
+	FormatCSV  = "csv"
 )
 
 // FormatInsert writes a single weigh-in result in the given format.
-func FormatInsert(w io.Writer, format, unit string, r store.WeighIn) error {
+func FormatInsert(w io.Writer, format string, r store.WeighIn) error {
 	switch format {
 	case FormatJSON:
 		if err := json.NewEncoder(w).Encode(r); err != nil {
@@ -48,15 +43,12 @@ func FormatInsert(w io.Writer, format, unit string, r store.WeighIn) error {
 		}
 		return nil
 	default:
-		if _, err := fmt.Fprintf(w, "Logged %.1f %s at %s (row id %d).\n", r.Weight, unit, r.CreatedAt, r.ID); err != nil {
-			return fmt.Errorf("write table output: %w", err)
-		}
-		return nil
+		return fmt.Errorf("unsupported format: %s", format)
 	}
 }
 
 // FormatList writes a list of weigh-ins in the given format.
-func FormatList(w io.Writer, format, unit string, results []store.WeighIn) error {
+func FormatList(w io.Writer, format string, results []store.WeighIn) error {
 	switch format {
 	case FormatJSON:
 		if err := json.NewEncoder(w).Encode(results); err != nil {
@@ -85,27 +77,32 @@ func FormatList(w io.Writer, format, unit string, results []store.WeighIn) error
 		}
 		return nil
 	default:
-		if len(results) == 0 {
-			if _, err := fmt.Fprintln(w, "No weigh-ins found."); err != nil {
-				return fmt.Errorf("write empty message: %w", err)
-			}
-			return nil
-		}
-		if _, err := fmt.Fprintf(w, tableHeader, "Timestamp", "Weight", "Source", "Notes"); err != nil {
-			return fmt.Errorf("write table header: %w", err)
-		}
-		if _, err := fmt.Fprintln(w, tableSeparator); err != nil {
-			return fmt.Errorf("write table separator: %w", err)
-		}
-		for _, r := range results {
-			notes := r.Notes
-			if notes == "" {
-				notes = emptyNotes
-			}
-			if _, err := fmt.Fprintf(w, tableRow, r.CreatedAt, r.Weight, r.Source, notes); err != nil {
-				return fmt.Errorf("write table row: %w", err)
-			}
+		return fmt.Errorf("unsupported format: %s", format)
+	}
+}
+
+// FormatVersion writes build info in the given format.
+func FormatVersion(w io.Writer, format string, info version.BuildInfo) error {
+	switch format {
+	case FormatJSON:
+		if err := json.NewEncoder(w).Encode(info); err != nil {
+			return fmt.Errorf("json encode: %w", err)
 		}
 		return nil
+	case FormatCSV:
+		cw := csv.NewWriter(w)
+		if err := cw.Write([]string{"version", "commit", "date"}); err != nil {
+			return fmt.Errorf("csv header: %w", err)
+		}
+		if err := cw.Write([]string{info.Version, info.Commit, info.Date}); err != nil {
+			return fmt.Errorf("csv row: %w", err)
+		}
+		cw.Flush()
+		if err := cw.Error(); err != nil {
+			return fmt.Errorf("csv flush: %w", err)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported format: %s", format)
 	}
 }

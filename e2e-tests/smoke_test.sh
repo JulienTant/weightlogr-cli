@@ -64,13 +64,17 @@ $BIN insert 183.8 $FLAGS --timestamp "2026-04-04T07:30:00" --source "gym-check" 
 $BIN insert 184.0 $FLAGS --timestamp "2026-04-06T09:00:00" --notes "before lunch, felt light" >/dev/null 2>&1
 echo ""
 
-# --- Snapshot tests ---
-echo "List output:"
-assert_output "list table" "list_table.txt" $BIN list $FLAGS
+# --- JSON output ---
+echo "List JSON output:"
 assert_output "list json" "list_json.txt" $BIN list $FLAGS --format json
-assert_output "list csv" "list_csv.txt" $BIN list $FLAGS --format csv
-
 echo ""
+
+# --- CSV output ---
+echo "List CSV output:"
+assert_output "list csv" "list_csv.txt" $BIN list $FLAGS --format csv
+echo ""
+
+# --- Filters ---
 echo "Filter output:"
 assert_output "filter --since" "filter_since.txt" $BIN list $FLAGS --format json --since "2026-04-05T00:00:00"
 assert_output "filter --until" "filter_until.txt" $BIN list $FLAGS --format json --until "2026-04-05T00:00:00"
@@ -88,8 +92,8 @@ assert_output "UTC to Phoenix" "insert_utc.txt" $BIN insert 186.0 --db "$DB" --l
 echo ""
 echo "Empty db:"
 EMPTY_DB=$(mktemp -t weightlogr-empty-XXXXXX.db)
-assert_output "empty table" "list_empty_table.txt" $BIN list --db "$EMPTY_DB" --log-file "$LOG"
 assert_output "empty json" "list_empty_json.txt" $BIN list --db "$EMPTY_DB" --log-file "$LOG" --format json
+assert_output "empty csv" "list_empty_csv.txt" $BIN list --db "$EMPTY_DB" --log-file "$LOG" --format csv
 rm -f "$EMPTY_DB"
 
 echo ""

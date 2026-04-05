@@ -77,5 +77,5 @@ func runInsert(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("insert weigh-in: %w", err)
 	}
 
-	return presentation.FormatInsert(os.Stdout, viper.GetString("format"), viper.GetString("unit"), result)
+	return presentation.FormatInsert(os.Stdout, viper.GetString("format"), result)
 }

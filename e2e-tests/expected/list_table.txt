@@ -1,5 +1,0 @@
-Timestamp            | Weight | Source      | Notes
----------------------+--------+-------------+--------------------
-2026-04-06 09:00:00  |  184.0 | daily-check | before lunch, felt light
-2026-04-05 08:00:00  |  185.2 | daily-check | morning
-2026-04-04 07:30:00  |  183.8 | gym-check   | after gym

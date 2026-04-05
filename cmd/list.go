@@ -92,5 +92,5 @@ func runList(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("list weigh-ins: %w", err)
 	}
 
-	return presentation.FormatList(os.Stdout, viper.GetString("format"), viper.GetString("unit"), results)
+	return presentation.FormatList(os.Stdout, viper.GetString("format"), results)
 }

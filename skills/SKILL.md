@@ -21,12 +21,11 @@ Every command accepts these. Also settable via `WEIGHTLOGR_*` env vars or `.weig
 |------|---------|---------|-------------|
 | `--db` | `WEIGHTLOGR_DB` | `/opt/data/weights.db` | SQLite database path |
 | `--timezone` | `WEIGHTLOGR_TIMEZONE` | `America/Phoenix` | Timezone for all timestamps |
-| `--format` | `WEIGHTLOGR_FORMAT` | `table` | Output: `table`, `json`, `csv` |
+| `--format` | `WEIGHTLOGR_FORMAT` | `json` | Output: `json`, `csv` |
 | `--log-file` | `WEIGHTLOGR_LOG_FILE` | `/opt/data/weightlogr.log` | Log file path (`stderr` for stderr) |
-| `--unit` | `WEIGHTLOGR_UNIT` | `kg` | Weight unit: `kg` or `lb` |
 | `--log-level` | `WEIGHTLOGR_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 
-**For AI usage, always pass `--format json`** to get structured output.
+Default format is `json`. Use `--format csv` for CSV output.
 
 ## Commands
 
@@ -101,12 +100,16 @@ CREATE TABLE weigh_ins (
 
 ```bash
 weightlogr version
-# weightlogr dev (commit none, built unknown)
+# {"version":"dev","commit":"none","date":"unknown"}
+
+weightlogr version --format csv
+# version,commit,date
+# dev,none,unknown
 ```
 
 ## AI integration notes
 
-- Always use `--format json` for structured parsing
+- Default output format is `json` — all commands produce structured output by default
 - Timestamps with timezone offsets are auto-converted to the configured timezone
 - `created_at` is UNIQUE — two entries at the same second will conflict
 - The `--source` flag is useful for distinguishing manual vs automated entries

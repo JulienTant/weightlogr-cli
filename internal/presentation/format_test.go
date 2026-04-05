@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/julientant/weightlogr-cli/internal/store"
+	"github.com/julientant/weightlogr-cli/internal/version"
 )
 
 func sampleWeighIn() store.WeighIn {
@@ -25,22 +25,10 @@ func sampleWeighIn() store.WeighIn {
 }
 
 func TestFormatInsert(t *testing.T) {
-	t.Run("table", func(t *testing.T) {
-		var buf bytes.Buffer
-		require.NoError(t, FormatInsert(&buf, "table", "kg", sampleWeighIn()))
-
-		out := buf.String()
-		assert.Contains(t, out, "Logged")
-		assert.Contains(t, out, "185.5")
-		assert.Contains(t, out, "kg")
-		assert.Contains(t, out, "2026-04-05 08:30:00")
-		assert.Contains(t, out, "row id 1")
-	})
-
 	t.Run("json", func(t *testing.T) {
 		var buf bytes.Buffer
 		r := sampleWeighIn()
-		require.NoError(t, FormatInsert(&buf, "json", "kg", r))
+		require.NoError(t, FormatInsert(&buf, FormatJSON, r))
 
 		var decoded store.WeighIn
 		require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
@@ -54,7 +42,7 @@ func TestFormatInsert(t *testing.T) {
 
 	t.Run("csv", func(t *testing.T) {
 		var buf bytes.Buffer
-		require.NoError(t, FormatInsert(&buf, "csv", "kg", sampleWeighIn()))
+		require.NoError(t, FormatInsert(&buf, FormatCSV, sampleWeighIn()))
 
 		records, err := csv.NewReader(strings.NewReader(buf.String())).ReadAll()
 		require.NoError(t, err)
@@ -73,7 +61,7 @@ func TestFormatInsert(t *testing.T) {
 		r.Notes = "felt tired, sore"
 
 		var buf bytes.Buffer
-		require.NoError(t, FormatInsert(&buf, "csv", "kg", r))
+		require.NoError(t, FormatInsert(&buf, FormatCSV, r))
 
 		records, err := csv.NewReader(strings.NewReader(buf.String())).ReadAll()
 		require.NoError(t, err)
@@ -82,13 +70,11 @@ func TestFormatInsert(t *testing.T) {
 		assert.Equal(t, "felt tired, sore", records[1][4])
 	})
 
-	t.Run("unknown format defaults to table", func(t *testing.T) {
+	t.Run("unsupported format returns error", func(t *testing.T) {
 		var buf bytes.Buffer
-		require.NoError(t, FormatInsert(&buf, "xml", "kg", sampleWeighIn()))
-
-		out := buf.String()
-		assert.Contains(t, out, "Logged")
-		assert.Contains(t, out, "185.5")
+		err := FormatInsert(&buf, "xml", sampleWeighIn())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported format")
 	})
 }
 
@@ -98,31 +84,9 @@ func TestFormatList(t *testing.T) {
 		{ID: 2, Weight: 184.5, CreatedAt: "2026-04-02 08:00:00", Source: "scale", Notes: ""},
 	}
 
-	t.Run("table empty", func(t *testing.T) {
-		var buf bytes.Buffer
-		require.NoError(t, FormatList(&buf, "table", "kg", nil))
-		assert.Equal(t, "No weigh-ins found.\n", buf.String())
-	})
-
-	t.Run("table with entries", func(t *testing.T) {
-		var buf bytes.Buffer
-		require.NoError(t, FormatList(&buf, "table", "kg", twoEntries))
-
-		lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
-		require.GreaterOrEqual(t, len(lines), 4)
-
-		assert.Contains(t, lines[0], "Timestamp")
-		assert.Contains(t, lines[0], "Weight")
-		assert.Contains(t, lines[1], "---")
-		assert.Contains(t, lines[2], "185.0")
-		assert.Contains(t, lines[2], "good day")
-		assert.Contains(t, lines[3], "184.5")
-		assert.Contains(t, lines[3], "| -", "empty notes should render as dash")
-	})
-
 	t.Run("json empty", func(t *testing.T) {
 		var buf bytes.Buffer
-		require.NoError(t, FormatList(&buf, "json", "kg", nil))
+		require.NoError(t, FormatList(&buf, FormatJSON, nil))
 		assert.Equal(t, "null\n", buf.String())
 	})
 
@@ -133,7 +97,7 @@ func TestFormatList(t *testing.T) {
 		}
 
 		var buf bytes.Buffer
-		require.NoError(t, FormatList(&buf, "json", "kg", entries))
+		require.NoError(t, FormatList(&buf, FormatJSON, entries))
 
 		var decoded []store.WeighIn
 		require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
@@ -146,7 +110,7 @@ func TestFormatList(t *testing.T) {
 
 	t.Run("csv", func(t *testing.T) {
 		var buf bytes.Buffer
-		require.NoError(t, FormatList(&buf, "csv", "kg", twoEntries))
+		require.NoError(t, FormatList(&buf, FormatCSV, twoEntries))
 
 		records, err := csv.NewReader(strings.NewReader(buf.String())).ReadAll()
 		require.NoError(t, err)
@@ -164,7 +128,7 @@ func TestFormatList(t *testing.T) {
 		}
 
 		var buf bytes.Buffer
-		require.NoError(t, FormatList(&buf, "csv", "kg", entries))
+		require.NoError(t, FormatList(&buf, FormatCSV, entries))
 
 		records, err := csv.NewReader(strings.NewReader(buf.String())).ReadAll()
 		require.NoError(t, err)
@@ -174,35 +138,47 @@ func TestFormatList(t *testing.T) {
 		assert.Equal(t, `she said "wow"`, records[2][4])
 	})
 
-	t.Run("multiple entries all present", func(t *testing.T) {
-		var entries []store.WeighIn
-		for i := 0; i < 5; i++ {
-			entries = append(entries, store.WeighIn{
-				ID:        int64(i + 1),
-				Weight:    180.0 + float64(i),
-				CreatedAt: fmt.Sprintf("2026-04-0%d 08:00:00", i+1),
-				Source:    "manual",
-				Notes:     fmt.Sprintf("day %d", i+1),
-			})
-		}
-
+	t.Run("unsupported format returns error", func(t *testing.T) {
 		var buf bytes.Buffer
-		require.NoError(t, FormatList(&buf, "table", "kg", entries))
+		err := FormatList(&buf, "yaml", []store.WeighIn{sampleWeighIn()})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported format")
+	})
+}
 
-		out := buf.String()
-		for _, e := range entries {
-			assert.Contains(t, out, fmt.Sprintf("%.1f", e.Weight))
-			assert.Contains(t, out, e.CreatedAt)
-			assert.Contains(t, out, e.Notes)
-		}
+func TestFormatVersion(t *testing.T) {
+	info := version.BuildInfo{
+		Version: "1.2.3",
+		Commit:  "abc123",
+		Date:    "2026-04-05",
+	}
+
+	t.Run("json", func(t *testing.T) {
+		var buf bytes.Buffer
+		require.NoError(t, FormatVersion(&buf, FormatJSON, info))
+
+		var decoded version.BuildInfo
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
+
+		assert.Equal(t, info, decoded)
 	})
 
-	t.Run("unknown format defaults to table", func(t *testing.T) {
+	t.Run("csv", func(t *testing.T) {
 		var buf bytes.Buffer
-		require.NoError(t, FormatList(&buf, "yaml", "kg", []store.WeighIn{sampleWeighIn()}))
+		require.NoError(t, FormatVersion(&buf, FormatCSV, info))
 
-		out := buf.String()
-		assert.Contains(t, out, "Timestamp")
-		assert.Contains(t, out, "185.5")
+		records, err := csv.NewReader(strings.NewReader(buf.String())).ReadAll()
+		require.NoError(t, err)
+
+		require.Len(t, records, 2)
+		assert.Equal(t, []string{"version", "commit", "date"}, records[0])
+		assert.Equal(t, []string{"1.2.3", "abc123", "2026-04-05"}, records[1])
+	})
+
+	t.Run("unsupported format returns error", func(t *testing.T) {
+		var buf bytes.Buffer
+		err := FormatVersion(&buf, "xml", info)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported format")
 	})
 }
