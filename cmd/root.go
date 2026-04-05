@@ -10,6 +10,7 @@ import (
 
 	"github.com/julientant/weightlogr-cli/internal/logger"
 	"github.com/julientant/weightlogr-cli/internal/presentation"
+	"github.com/julientant/weightlogr-cli/internal/version"
 )
 
 const (
@@ -59,6 +60,11 @@ var rootCmd = &cobra.Command{
 			l.Debug("config file loaded", "path", f)
 		}
 
+		l.Debug("build info",
+			"version", version.Version,
+			"commit", version.Commit,
+			"date", version.Date,
+		)
 		l.Info("weightlogr starting", "command", cmd.Name())
 		l.Debug("resolved configuration",
 			"db", viper.GetString("db"),

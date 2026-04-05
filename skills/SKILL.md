@@ -1,5 +1,5 @@
 ---
-name: weightlogr
+name: weightlogr-cli
 description: Use this skill when the user wants to log body weight, check weigh-in history, or analyze weight trends. Triggers on "log my weight", "weigh-in", "weight check", "how much do I weigh", or any mention of tracking body weight over time.
 ---
 
@@ -10,7 +10,7 @@ Weight tracking CLI. All output is machine-parseable.
 ## Binary location
 
 ```
-/Users/julientant/projects/homelab/weightlogr-cli/dist/weightlogr
+/Users/julientant/projects/weightlogr-cli/dist/weightlogr
 ```
 
 ## Global flags
@@ -23,6 +23,7 @@ Every command accepts these. Also settable via `WEIGHTLOGR_*` env vars or `.weig
 | `--timezone` | `WEIGHTLOGR_TIMEZONE` | `America/Phoenix` | Timezone for all timestamps |
 | `--format` | `WEIGHTLOGR_FORMAT` | `table` | Output: `table`, `json`, `csv` |
 | `--log-file` | `WEIGHTLOGR_LOG_FILE` | `/opt/data/weightlogr.log` | Log file path (`stderr` for stderr) |
+| `--unit` | `WEIGHTLOGR_UNIT` | `kg` | Weight unit: `kg` or `lb` |
 | `--log-level` | `WEIGHTLOGR_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 
 **For AI usage, always pass `--format json`** to get structured output.
@@ -94,6 +95,13 @@ CREATE TABLE weigh_ins (
     source     TEXT,                         -- e.g. "daily-check", "gym-check"
     notes      TEXT
 );
+```
+
+### version — Print build info
+
+```bash
+weightlogr version
+# weightlogr dev (commit none, built unknown)
 ```
 
 ## AI integration notes
