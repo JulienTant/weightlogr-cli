@@ -1,13 +1,30 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/julientant/weightlogr-cli/internal/logger"
+	"github.com/julientant/weightlogr-cli/internal/presentation"
+)
+
+const (
+	DefaultDB       = "/opt/data/weights.db"
+	DefaultTZ       = "America/Phoenix"
+	DefaultLogFile  = "/opt/data/weightlogr.log"
+	DefaultLogLevel = "info"
+
+	UnitKg = "kg"
+
+	LogFileStderr = "stderr"
+
+	LogLevelDebug = "debug"
+	LogLevelWarn  = "warn"
+	LogLevelError = "error"
 )
 
 var rootCmd = &cobra.Command{
@@ -31,19 +48,19 @@ var rootCmd = &cobra.Command{
 		}
 
 		// 3. Logger setup — values read from Viper (single source of truth).
-		logger, err := setupLogger()
+		l, err := setupLogger()
 		if err != nil {
-			return err
+			return fmt.Errorf("setup logger: %w", err)
 		}
-		ctx := contextWithLogger(cmd.Context(), logger)
+		ctx := logger.WithContext(cmd.Context(), l)
 		cmd.SetContext(ctx)
 
 		if f := viper.ConfigFileUsed(); f != "" {
-			logger.Debug("config file loaded", "path", f)
+			l.Debug("config file loaded", "path", f)
 		}
 
-		logger.Info("weightlogr starting", "command", cmd.Name())
-		logger.Debug("resolved configuration",
+		l.Info("weightlogr starting", "command", cmd.Name())
+		l.Debug("resolved configuration",
 			"db", viper.GetString("db"),
 			"timezone", viper.GetString("timezone"),
 			"format", viper.GetString("format"),
@@ -55,8 +72,7 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() {
-	ctx := context.Background()
-	if err := rootCmd.ExecuteContext(ctx); err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -66,17 +82,28 @@ func Execute() {
 func init() {
 	f := rootCmd.PersistentFlags()
 
-	f.String("db", "/opt/data/weights.db", "Path to SQLite database")
-	f.String("timezone", "America/Phoenix", "Timezone for timestamps")
-	f.String("format", "table", "Output format: table, json, csv")
-	f.String("log-file", "/opt/data/weightlogr.log", "Path to log file (use 'stderr' for stderr)")
-	f.String("log-level", "info", "Log level: debug, info, warn, error")
+	f.String("db", DefaultDB, "Path to SQLite database")
+	f.String("timezone", DefaultTZ, "Timezone for timestamps")
+	f.String("format", presentation.FormatTable, "Output format: table, json, csv")
+	f.String("unit", UnitKg, "Weight unit: kg or lb")
+	f.String("log-file", DefaultLogFile, "Path to log file (use 'stderr' for stderr)")
+	f.String("log-level", DefaultLogLevel, "Log level: debug, info, warn, error")
 
-	viper.BindPFlag("db", f.Lookup("db"))
-	viper.BindPFlag("timezone", f.Lookup("timezone"))
-	viper.BindPFlag("format", f.Lookup("format"))
-	viper.BindPFlag("log_file", f.Lookup("log-file"))
-	viper.BindPFlag("log_level", f.Lookup("log-level"))
+	for _, b := range []struct {
+		key  string
+		flag string
+	}{
+		{"db", "db"},
+		{"timezone", "timezone"},
+		{"format", "format"},
+		{"unit", "unit"},
+		{"log_file", "log-file"},
+		{"log_level", "log-level"},
+	} {
+		if err := viper.BindPFlag(b.key, f.Lookup(b.flag)); err != nil {
+			panic(fmt.Sprintf("bind flag %q: %v", b.flag, err))
+		}
+	}
 }
 
 // 3. All helpers below read from Viper, never from flag variables directly.
@@ -86,10 +113,10 @@ func setupLogger() (*slog.Logger, error) {
 	level := parseLogLevel(viper.GetString("log_level"))
 
 	var handler slog.Handler
-	if logFile == "stderr" {
+	if logFile == LogFileStderr {
 		handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})
 	} else {
-		f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, LogFilePermissions)
 		if err != nil {
 			return nil, fmt.Errorf("open log file %q: %w", logFile, err)
 		}
@@ -101,26 +128,13 @@ func setupLogger() (*slog.Logger, error) {
 
 func parseLogLevel(s string) slog.Level {
 	switch s {
-	case "debug":
+	case LogLevelDebug:
 		return slog.LevelDebug
-	case "warn":
+	case LogLevelWarn:
 		return slog.LevelWarn
-	case "error":
+	case LogLevelError:
 		return slog.LevelError
 	default:
 		return slog.LevelInfo
 	}
-}
-
-type ctxKeyLogger struct{}
-
-func contextWithLogger(ctx context.Context, l *slog.Logger) context.Context {
-	return context.WithValue(ctx, ctxKeyLogger{}, l)
-}
-
-func loggerFrom(ctx context.Context) *slog.Logger {
-	if l, ok := ctx.Value(ctxKeyLogger{}).(*slog.Logger); ok {
-		return l
-	}
-	return slog.Default()
 }

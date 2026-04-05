@@ -1,0 +1,1 @@
+[{"id":2,"weight":183.8,"created_at":"2026-04-04 07:30:00","source":"gym-check","notes":"after gym"}]

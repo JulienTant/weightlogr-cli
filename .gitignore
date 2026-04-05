@@ -1,2 +1,3 @@
 dist/
 .weightlogr.yaml
+.claude/agent-memory/

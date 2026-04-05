@@ -1,16 +1,16 @@
 package cmd
 
 import (
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"os"
 
-	sq "github.com/Masterminds/squirrel"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/julientant/weightlogr-cli/internal/db"
+	"github.com/julientant/weightlogr-cli/internal/logger"
+	"github.com/julientant/weightlogr-cli/internal/presentation"
+	"github.com/julientant/weightlogr-cli/internal/store"
 )
 
 var listCmd = &cobra.Command{
@@ -23,139 +23,74 @@ func init() {
 	listCmd.Flags().String("since", "", "Start date/time inclusive (ISO 8601)")
 	listCmd.Flags().String("until", "", "End date/time exclusive (ISO 8601)")
 	listCmd.Flags().String("source", "", "Filter by source")
-	listCmd.Flags().String("order", "desc", "Sort order: asc or desc")
+	listCmd.Flags().String("order", store.OrderDesc, "Sort order: asc or desc")
 	listCmd.Flags().Int("limit", 0, "Max rows to return (0 = unlimited)")
 
 	rootCmd.AddCommand(listCmd)
 }
 
-type weighIn struct {
-	ID        int64   `json:"id"`
-	Weight    float64 `json:"weight"`
-	CreatedAt string  `json:"created_at"`
-	Source    string  `json:"source"`
-	Notes     string  `json:"notes"`
-}
-
 func runList(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
-	logger := loggerFrom(ctx)
+	log := logger.FromContext(ctx)
 
-	logger.Debug("parsing list flags")
+	log.Debug("parsing list flags")
 
-	tz, err := loadTimezone()
+	tz, err := loadTimezone(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("load timezone: %w", err)
 	}
 
-	conn, err := db.Open(ctx, logger, viper.GetString("db"))
+	conn, err := db.Open(ctx, viper.GetString("db"))
 	if err != nil {
-		return err
+		return fmt.Errorf("open database: %w", err)
 	}
-	defer conn.Close()
+	defer withLogError(ctx, conn.Close)
 
-	qb := sq.Select("id", "weight", "created_at", "source", "notes").
-		From("weigh_ins")
-
-	if since, _ := cmd.Flags().GetString("since"); since != "" {
-		normalized := normalizeTimestamp(since, tz)
-		logger.Debug("applying since filter", "raw", since, "normalized", normalized)
-		qb = qb.Where(sq.GtOrEq{"created_at": normalized})
-	}
-	if until, _ := cmd.Flags().GetString("until"); until != "" {
-		normalized := normalizeTimestamp(until, tz)
-		logger.Debug("applying until filter", "raw", until, "normalized", normalized)
-		qb = qb.Where(sq.Lt{"created_at": normalized})
-	}
-	if source, _ := cmd.Flags().GetString("source"); source != "" {
-		logger.Debug("applying source filter", "source", source)
-		qb = qb.Where(sq.Eq{"source": source})
-	}
-
-	order, _ := cmd.Flags().GetString("order")
-	if order == "asc" {
-		qb = qb.OrderBy("created_at ASC")
-	} else {
-		qb = qb.OrderBy("created_at DESC")
-	}
-
-	if limit, _ := cmd.Flags().GetInt("limit"); limit > 0 {
-		logger.Debug("applying limit", "limit", limit)
-		qb = qb.Limit(uint64(limit))
-	}
-
-	query, args, err := qb.ToSql()
+	since, err := cmd.Flags().GetString("since")
 	if err != nil {
-		return fmt.Errorf("build query: %w", err)
+		log.Warn("failed to read since flag", "error", err)
 	}
-
-	logger.Debug("executing query", "sql", query, "args", args)
-
-	rows, err := conn.QueryContext(ctx, query, args...)
+	until, err := cmd.Flags().GetString("until")
 	if err != nil {
-		return fmt.Errorf("query: %w", err)
+		log.Warn("failed to read until flag", "error", err)
 	}
-	defer rows.Close()
-
-	var results []weighIn
-	for rows.Next() {
-		var r weighIn
-		var source, notes *string
-		if err := rows.Scan(&r.ID, &r.Weight, &r.CreatedAt, &source, &notes); err != nil {
-			return fmt.Errorf("scan: %w", err)
+	if since != "" {
+		since, err = normalizeTimestamp(ctx, since, tz)
+		if err != nil {
+			return fmt.Errorf("normalize since timestamp: %w", err)
 		}
-		if source != nil {
-			r.Source = *source
+	}
+	if until != "" {
+		until, err = normalizeTimestamp(ctx, until, tz)
+		if err != nil {
+			return fmt.Errorf("normalize until timestamp: %w", err)
 		}
-		if notes != nil {
-			r.Notes = *notes
-		}
-		results = append(results, r)
 	}
 
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("rows: %w", err)
+	source, err := cmd.Flags().GetString("source")
+	if err != nil {
+		log.Warn("failed to read source flag", "error", err)
+	}
+	order, err := cmd.Flags().GetString("order")
+	if err != nil {
+		log.Warn("failed to read order flag", "error", err)
+	}
+	limit, err := cmd.Flags().GetInt("limit")
+	if err != nil {
+		log.Warn("failed to read limit flag", "error", err)
 	}
 
-	logger.Info("weigh-ins retrieved", "count", len(results), "order", order)
-
-	return outputList(results)
-}
-
-func outputList(results []weighIn) error {
-	format := viper.GetString("format")
-
-	switch format {
-	case "json":
-		return json.NewEncoder(os.Stdout).Encode(results)
-	case "csv":
-		w := csv.NewWriter(os.Stdout)
-		w.Write([]string{"id", "weight", "created_at", "source", "notes"})
-		for _, r := range results {
-			w.Write([]string{
-				fmt.Sprintf("%d", r.ID),
-				fmt.Sprintf("%.1f", r.Weight),
-				r.CreatedAt,
-				r.Source,
-				r.Notes,
-			})
-		}
-		w.Flush()
-		return w.Error()
-	default:
-		if len(results) == 0 {
-			fmt.Println("No weigh-ins found.")
-			return nil
-		}
-		fmt.Printf("%-20s | %6s | %-11s | %s\n", "Timestamp", "Weight", "Source", "Notes")
-		fmt.Println("---------------------+--------+-------------+--------------------")
-		for _, r := range results {
-			notes := r.Notes
-			if notes == "" {
-				notes = "-"
-			}
-			fmt.Printf("%-20s | %6.1f | %-11s | %s\n", r.CreatedAt, r.Weight, r.Source, notes)
-		}
-		return nil
+	s := store.New(conn)
+	results, err := s.List(ctx, store.ListOpts{
+		Since:  since,
+		Until:  until,
+		Source: source,
+		Order:  order,
+		Limit:  limit,
+	})
+	if err != nil {
+		return fmt.Errorf("list weigh-ins: %w", err)
 	}
+
+	return presentation.FormatList(os.Stdout, viper.GetString("format"), viper.GetString("unit"), results)
 }
