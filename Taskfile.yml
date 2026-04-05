@@ -1,7 +1,7 @@
 version: "3"
 
 vars:
-  BINARY: weightlogr
+  BINARY: weightlogr-cli
   DIST: dist
   MISE: mise exec --
 

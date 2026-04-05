@@ -7,10 +7,20 @@ description: Use this skill when the user wants to log body weight, check weigh-
 
 Weight tracking CLI. All output is machine-parseable.
 
+## Installation
+
+```bash
+# Download and install latest release (linux amd64)
+curl -sL "https://api.github.com/repos/JulienTant/weightlogr-cli/releases/latest" \
+  | grep -o '"browser_download_url": *"[^"]*linux_amd64[^"]*"' \
+  | sed 's/"browser_download_url": *"//;s/"$//' \
+  | xargs curl -sL | tar -xz -C /usr/local/bin weightlogr-cli
+```
+
 ## Binary location
 
 ```
-/Users/julientant/projects/weightlogr-cli/dist/weightlogr
+/usr/local/bin/weightlogr-cli
 ```
 
 ## Global flags
@@ -31,7 +41,7 @@ Default format is `json`. Use `--format csv` for CSV output.
 ### insert — Log a weigh-in
 
 ```bash
-weightlogr insert <weight> [flags]
+weightlogr-cli insert <weight> [flags]
 ```
 
 | Flag | Default | Description |
@@ -44,10 +54,10 @@ weightlogr insert <weight> [flags]
 
 ```bash
 # Quick log (now, UTC)
-weightlogr insert 185.2 --format json
+weightlogr-cli insert 185.2 --format json
 
 # With timestamp and notes
-weightlogr insert 184.0 --timestamp 2026-04-03T08:00:00-07:00 --notes "after gym" --source gym-check --format json
+weightlogr-cli insert 184.0 --timestamp 2026-04-03T08:00:00-07:00 --notes "after gym" --source gym-check --format json
 
 # Output (json):
 # {"created_at":"2026-04-05T15:06:55Z","id":1,"notes":"","source":"daily-check","weight":185.2}
@@ -56,7 +66,7 @@ weightlogr insert 184.0 --timestamp 2026-04-03T08:00:00-07:00 --notes "after gym
 ### list — Query weigh-ins
 
 ```bash
-weightlogr list [flags]
+weightlogr-cli list [flags]
 ```
 
 | Flag | Default | Description |
@@ -72,13 +82,13 @@ weightlogr list [flags]
 
 ```bash
 # Last 5 entries as JSON
-weightlogr list --limit 5 --format json
+weightlogr-cli list --limit 5 --format json
 
 # Date range
-weightlogr list --since 2026-03-31 --until 2026-04-07 --format json
+weightlogr-cli list --since 2026-03-31 --until 2026-04-07 --format json
 
 # Filter by source, oldest first
-weightlogr list --source gym-check --order asc --format json
+weightlogr-cli list --source gym-check --order asc --format json
 
 # Output (json):
 # [{"id":1,"weight":185.2,"created_at":"2026-04-05T15:06:55Z","source":"daily-check","notes":"test"}]
@@ -99,7 +109,7 @@ CREATE TABLE weigh_ins (
 ### version — Print build info
 
 ```bash
-weightlogr version
+weightlogr-cli version
 # {"version":"dev","commit":"none","date":"unknown"}
 ```
 

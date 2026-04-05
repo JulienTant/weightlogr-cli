@@ -28,7 +28,7 @@ const (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "weightlogr",
+	Use:   "weightlogr-cli",
 	Short: "Weight tracking CLI optimized for AI agents",
 	Long:  "A 12-factor weight tracking CLI. Configure via flags, env vars (WEIGHTLOGR_ prefix), or config file.",
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
