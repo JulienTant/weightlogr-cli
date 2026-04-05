@@ -11,6 +11,7 @@ import (
 	"github.com/julientant/weightlogr-cli/internal/logger"
 	"github.com/julientant/weightlogr-cli/internal/presentation"
 	"github.com/julientant/weightlogr-cli/internal/store"
+	"github.com/julientant/weightlogr-cli/pkg/models"
 )
 
 var listCmd = &cobra.Command{
@@ -23,7 +24,7 @@ func init() {
 	listCmd.Flags().String("since", "", "Start date/time inclusive (RFC3339)")
 	listCmd.Flags().String("until", "", "End date/time exclusive (RFC3339)")
 	listCmd.Flags().String("source", "", "Filter by source")
-	listCmd.Flags().String("order", store.OrderDesc, "Sort order: asc or desc")
+	listCmd.Flags().String("order", models.OrderDesc, "Sort order: asc or desc")
 	listCmd.Flags().Int("limit", 0, "Max rows to return (0 = unlimited)")
 	listCmd.Flags().String("timezone", "", "Convert output timestamps to this timezone (e.g. America/Phoenix)")
 
@@ -86,7 +87,7 @@ func runList(cmd *cobra.Command, _ []string) error {
 	}
 
 	s := store.New(conn)
-	results, err := s.List(ctx, store.ListOpts{
+	results, err := s.List(ctx, models.ListOpts{
 		Since:  since,
 		Until:  until,
 		Source: source,

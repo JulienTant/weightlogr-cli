@@ -7,8 +7,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/julientant/weightlogr-cli/internal/store"
 	"github.com/julientant/weightlogr-cli/internal/version"
+	"github.com/julientant/weightlogr-cli/pkg/models"
 )
 
 func convertTimestamp(rfc3339 string, loc *time.Location) (string, error) {
@@ -25,7 +25,7 @@ const (
 )
 
 // FormatInsert writes a single weigh-in result in the given format.
-func FormatInsert(w io.Writer, format string, r store.WeighIn) error {
+func FormatInsert(w io.Writer, format string, r models.WeighIn) error {
 	switch format {
 	case FormatJSON:
 		if err := json.NewEncoder(w).Encode(r); err != nil {
@@ -59,7 +59,7 @@ func FormatInsert(w io.Writer, format string, r store.WeighIn) error {
 
 // FormatList writes a list of weigh-ins in the given format.
 // Timestamps are converted to loc before formatting.
-func FormatList(w io.Writer, format string, loc *time.Location, results []store.WeighIn) error {
+func FormatList(w io.Writer, format string, loc *time.Location, results []models.WeighIn) error {
 	switch format {
 	case FormatJSON:
 		if results == nil {
@@ -68,7 +68,7 @@ func FormatList(w io.Writer, format string, loc *time.Location, results []store.
 			}
 			return nil
 		}
-		converted := make([]store.WeighIn, len(results))
+		converted := make([]models.WeighIn, len(results))
 		for i, r := range results {
 			ts, err := convertTimestamp(r.CreatedAt, loc)
 			if err != nil {
@@ -122,19 +122,13 @@ func FormatList(w io.Writer, format string, loc *time.Location, results []store.
 }
 
 // FormatUpdate writes a single updated weigh-in result in the given format.
-func FormatUpdate(w io.Writer, format string, r store.WeighIn) error {
+func FormatUpdate(w io.Writer, format string, r models.WeighIn) error {
 	return FormatInsert(w, format, r)
-}
-
-// DeleteResult represents the output of a delete operation.
-type DeleteResult struct {
-	ID      int64 `json:"id"`
-	Deleted bool  `json:"deleted"`
 }
 
 // FormatDelete writes a delete confirmation in the given format.
 func FormatDelete(w io.Writer, format string, id int64) error {
-	r := DeleteResult{ID: id, Deleted: true}
+	r := models.DeleteResult{ID: id, Deleted: true}
 	switch format {
 	case FormatJSON:
 		if err := json.NewEncoder(w).Encode(r); err != nil {

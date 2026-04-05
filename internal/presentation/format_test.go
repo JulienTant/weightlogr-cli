@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/julientant/weightlogr-cli/internal/store"
 	"github.com/julientant/weightlogr-cli/internal/version"
+	"github.com/julientant/weightlogr-cli/pkg/models"
 )
 
-func sampleWeighIn() store.WeighIn {
-	return store.WeighIn{
+func sampleWeighIn() models.WeighIn {
+	return models.WeighIn{
 		ID:        1,
 		Weight:    185.5,
 		CreatedAt: "2026-04-05T08:30:00Z",
@@ -32,7 +32,7 @@ func TestFormatInsert(t *testing.T) {
 		r := sampleWeighIn()
 		require.NoError(t, FormatInsert(&buf, FormatJSON, r))
 
-		var decoded store.WeighIn
+		var decoded models.WeighIn
 		require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
 
 		assert.Equal(t, r.ID, decoded.ID)
@@ -82,7 +82,7 @@ func TestFormatInsert(t *testing.T) {
 }
 
 func TestFormatList(t *testing.T) {
-	twoEntries := []store.WeighIn{
+	twoEntries := []models.WeighIn{
 		{ID: 1, Weight: 185.0, CreatedAt: "2026-04-01T08:00:00Z", Source: "manual", Notes: "good day", UpdatedAt: "2026-04-01T08:00:00Z"},
 		{ID: 2, Weight: 184.5, CreatedAt: "2026-04-02T08:00:00Z", Source: "scale", Notes: "", UpdatedAt: "2026-04-02T08:00:00Z"},
 	}
@@ -94,7 +94,7 @@ func TestFormatList(t *testing.T) {
 	})
 
 	t.Run("json with entries", func(t *testing.T) {
-		entries := []store.WeighIn{
+		entries := []models.WeighIn{
 			{ID: 1, Weight: 185.0, CreatedAt: "2026-04-01T08:00:00Z", Source: "manual", Notes: "a", UpdatedAt: "2026-04-01T08:00:00Z"},
 			{ID: 2, Weight: 184.5, CreatedAt: "2026-04-02T08:00:00Z", Source: "scale", Notes: "b", UpdatedAt: "2026-04-02T08:00:00Z"},
 		}
@@ -102,7 +102,7 @@ func TestFormatList(t *testing.T) {
 		var buf bytes.Buffer
 		require.NoError(t, FormatList(&buf, FormatJSON, time.UTC, entries))
 
-		var decoded []store.WeighIn
+		var decoded []models.WeighIn
 		require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
 
 		require.Len(t, decoded, 2)
@@ -112,7 +112,7 @@ func TestFormatList(t *testing.T) {
 	})
 
 	t.Run("json with timezone conversion", func(t *testing.T) {
-		entries := []store.WeighIn{
+		entries := []models.WeighIn{
 			{ID: 1, Weight: 185.0, CreatedAt: "2026-04-01T15:00:00Z", Source: "manual", Notes: "a", UpdatedAt: "2026-04-01T15:00:00Z"},
 		}
 
@@ -122,7 +122,7 @@ func TestFormatList(t *testing.T) {
 		var buf bytes.Buffer
 		require.NoError(t, FormatList(&buf, FormatJSON, phoenix, entries))
 
-		var decoded []store.WeighIn
+		var decoded []models.WeighIn
 		require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
 
 		require.Len(t, decoded, 1)
@@ -143,7 +143,7 @@ func TestFormatList(t *testing.T) {
 	})
 
 	t.Run("csv with timezone conversion", func(t *testing.T) {
-		entries := []store.WeighIn{
+		entries := []models.WeighIn{
 			{ID: 1, Weight: 185.0, CreatedAt: "2026-04-01T15:00:00Z", Source: "manual", Notes: "afternoon", UpdatedAt: "2026-04-01T15:00:00Z"},
 		}
 
@@ -161,7 +161,7 @@ func TestFormatList(t *testing.T) {
 	})
 
 	t.Run("csv special characters in notes", func(t *testing.T) {
-		entries := []store.WeighIn{
+		entries := []models.WeighIn{
 			{ID: 1, Weight: 185.0, CreatedAt: "2026-04-01T08:00:00Z", Source: "manual", Notes: "tired, sore", UpdatedAt: "2026-04-01T08:00:00Z"},
 			{ID: 2, Weight: 184.5, CreatedAt: "2026-04-02T08:00:00Z", Source: "scale", Notes: `she said "wow"`, UpdatedAt: "2026-04-02T08:00:00Z"},
 		}
@@ -179,7 +179,7 @@ func TestFormatList(t *testing.T) {
 
 	t.Run("unsupported format returns error", func(t *testing.T) {
 		var buf bytes.Buffer
-		err := FormatList(&buf, "yaml", time.UTC, []store.WeighIn{sampleWeighIn()})
+		err := FormatList(&buf, "yaml", time.UTC, []models.WeighIn{sampleWeighIn()})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported format")
 	})
@@ -192,7 +192,7 @@ func TestFormatUpdate(t *testing.T) {
 		r.UpdatedAt = "2026-04-06T10:00:00Z"
 		require.NoError(t, FormatUpdate(&buf, FormatJSON, r))
 
-		var decoded store.WeighIn
+		var decoded models.WeighIn
 		require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
 
 		assert.Equal(t, r.UpdatedAt, decoded.UpdatedAt)
@@ -219,7 +219,7 @@ func TestFormatDelete(t *testing.T) {
 		var buf bytes.Buffer
 		require.NoError(t, FormatDelete(&buf, FormatJSON, 42))
 
-		var decoded DeleteResult
+		var decoded models.DeleteResult
 		require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
 
 		assert.Equal(t, int64(42), decoded.ID)

@@ -10,29 +10,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/julientant/weightlogr-cli/internal/version"
+	"github.com/julientant/weightlogr-cli/pkg/models"
 )
-
-// weighIn mirrors the JSON output shape for weigh-ins.
-type weighIn struct {
-	ID        int64   `json:"id"`
-	Weight    float64 `json:"weight"`
-	CreatedAt string  `json:"created_at"`
-	Source    string  `json:"source"`
-	Notes     string  `json:"notes"`
-	UpdatedAt string  `json:"updated_at"`
-	DeletedAt string  `json:"deleted_at,omitempty"`
-}
-
-type deleteResult struct {
-	ID      int64 `json:"id"`
-	Deleted bool  `json:"deleted"`
-}
-
-type versionInfo struct {
-	Version string `json:"version"`
-	Commit  string `json:"commit"`
-	Date    string `json:"date"`
-}
 
 type testEnv struct {
 	t       *testing.T
@@ -95,16 +76,16 @@ func (e *testEnv) seed() {
 	e.mustRun("insert", "184.0", "--timestamp", "2026-04-06T16:00:00Z", "--notes", "before lunch, felt light")
 }
 
-func parseJSONList(t *testing.T, raw string) []weighIn {
+func parseJSONList(t *testing.T, raw string) []models.WeighIn {
 	t.Helper()
-	var result []weighIn
+	var result []models.WeighIn
 	require.NoError(t, json.Unmarshal([]byte(raw), &result))
 	return result
 }
 
-func parseJSONOne(t *testing.T, raw string) weighIn {
+func parseJSONOne(t *testing.T, raw string) models.WeighIn {
 	t.Helper()
-	var result weighIn
+	var result models.WeighIn
 	require.NoError(t, json.Unmarshal([]byte(raw), &result))
 	return result
 }
@@ -257,7 +238,7 @@ func TestVersion(t *testing.T) {
 
 	t.Run("json", func(t *testing.T) {
 		out := env.mustRun("version", "--format", "json")
-		var info versionInfo
+		var info version.BuildInfo
 		require.NoError(t, json.Unmarshal([]byte(out), &info))
 		assert.Equal(t, "dev", info.Version)
 		assert.Equal(t, "none", info.Commit)
@@ -337,7 +318,7 @@ func TestDelete(t *testing.T) {
 
 	t.Run("returns confirmation", func(t *testing.T) {
 		out := env.mustRun("delete", "2")
-		var result deleteResult
+		var result models.DeleteResult
 		require.NoError(t, json.Unmarshal([]byte(out), &result))
 		assert.Equal(t, int64(2), result.ID)
 		assert.True(t, result.Deleted)
