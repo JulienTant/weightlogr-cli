@@ -45,7 +45,7 @@ You are a documentation auditor for the weightlogr-cli project. Your job is to c
 
 ## Output Format
 
-```
+```markdown
 ## Skill Sync Report
 
 ### In Sync

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -39,8 +40,8 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid id: %w", err)
 	}
 
-	var weight float64
-	if _, err := fmt.Sscanf(args[1], "%f", &weight); err != nil {
+	weight, err := strconv.ParseFloat(args[1], 64)
+	if err != nil {
 		return fmt.Errorf("invalid weight: %w", err)
 	}
 
@@ -64,6 +65,9 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	s := store.New(conn)
 	result, err := s.Update(ctx, id, weight, source, notes)
 	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return fmt.Errorf("weigh-in %d not found: %w", id, err)
+		}
 		return fmt.Errorf("update weigh-in: %w", err)
 	}
 

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -46,6 +47,9 @@ func runDelete(cmd *cobra.Command, args []string) error {
 
 	s := store.New(conn)
 	if err := s.Delete(ctx, id); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return fmt.Errorf("weigh-in %d not found: %w", id, err)
+		}
 		return fmt.Errorf("delete weigh-in: %w", err)
 	}
 

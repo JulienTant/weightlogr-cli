@@ -3,9 +3,12 @@ package e2e_test
 import (
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,6 +16,12 @@ import (
 
 	"github.com/julientant/weightlogr-cli/internal/version"
 	"github.com/julientant/weightlogr-cli/pkg/models"
+)
+
+var (
+	builtBin  string
+	buildOnce sync.Once
+	buildErr  error
 )
 
 type testEnv struct {
@@ -33,25 +42,34 @@ func setup(t *testing.T) *testEnv {
 	return &testEnv{t: t, bin: bin, dbPath: dbPath, logPath: logPath}
 }
 
-func projectRoot(t *testing.T) string {
-	t.Helper()
-	// e2e-tests/ is one level below the project root
-	abs, err := filepath.Abs("..")
-	require.NoError(t, err)
-	return abs
-}
-
 func buildBinary(t *testing.T) string {
 	t.Helper()
 
-	root := projectRoot(t)
-	bin := filepath.Join(t.TempDir(), "weightlogr-cli")
-	cmd := exec.Command("go", "build", "-o", bin, ".")
-	cmd.Dir = root
-	out, err := cmd.CombinedOutput()
-	require.NoError(t, err, "build failed: %s", string(out))
+	buildOnce.Do(func() {
+		// e2e-tests/ is one level below the project root
+		root, err := filepath.Abs("..")
+		if err != nil {
+			buildErr = err
+			return
+		}
 
-	return bin
+		dir, err := os.MkdirTemp("", "weightlogr-e2e-*")
+		if err != nil {
+			buildErr = err
+			return
+		}
+
+		builtBin = filepath.Join(dir, "weightlogr-cli")
+		cmd := exec.Command("go", "build", "-o", builtBin, ".")
+		cmd.Dir = root
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			buildErr = fmt.Errorf("build failed: %s: %w", string(out), err)
+		}
+	})
+
+	require.NoError(t, buildErr)
+	return builtBin
 }
 
 func (e *testEnv) run(args ...string) (string, error) {

@@ -15,6 +15,7 @@ CREATE TABLE weigh_ins_new (
     updated_at TEXT    NOT NULL,
     deleted_at TEXT
 );
-INSERT INTO weigh_ins_new SELECT * FROM weigh_ins;
+INSERT INTO weigh_ins_new (id, weight, created_at, source, notes, updated_at, deleted_at)
+    SELECT id, weight, created_at, source, notes, updated_at, deleted_at FROM weigh_ins;
 DROP TABLE weigh_ins;
 ALTER TABLE weigh_ins_new RENAME TO weigh_ins;
