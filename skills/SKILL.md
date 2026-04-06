@@ -10,11 +10,17 @@ Weight tracking CLI. All output is machine-parseable.
 ## Installation
 
 ```bash
-# Download and install latest release (linux amd64)
-curl -sL "https://api.github.com/repos/JulienTant/weightlogr-cli/releases/latest" \
-  | grep -o '"browser_download_url": *"[^"]*linux_amd64[^"]*"' \
-  | sed 's/"browser_download_url": *"//;s/"$//' \
-  | xargs curl -sL | tar -xz -C /usr/local/bin weightlogr-cli
+# Linux amd64
+curl -sL https://github.com/JulienTant/weightlogr-cli/releases/latest/download/weightlogr-cli_linux_amd64.tar.gz | tar xz -C /usr/local/bin weightlogr-cli
+
+# Linux arm64
+curl -sL https://github.com/JulienTant/weightlogr-cli/releases/latest/download/weightlogr-cli_linux_arm64.tar.gz | tar xz -C /usr/local/bin weightlogr-cli
+
+# macOS arm64 (Apple Silicon)
+curl -sL https://github.com/JulienTant/weightlogr-cli/releases/latest/download/weightlogr-cli_darwin_arm64.tar.gz | tar xz -C /usr/local/bin weightlogr-cli
+
+# macOS amd64 (Intel)
+curl -sL https://github.com/JulienTant/weightlogr-cli/releases/latest/download/weightlogr-cli_darwin_amd64.tar.gz | tar xz -C /usr/local/bin weightlogr-cli
 ```
 
 ## Binary location
